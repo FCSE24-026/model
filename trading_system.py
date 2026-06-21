@@ -62,6 +62,33 @@ class TradingSystemConfig:
     subsample: float = 0.8
 
 
+@dataclass(frozen=True)
+class TradeLog:
+    timestamp: datetime
+    signal: str
+    entry_price: float
+    exit_price: float
+    confidence: float
+    stake: float = 1.0
+    payout_ratio: float = 0.85
+
+    @property
+    def outcome(self) -> str:
+        if self.signal == CALL:
+            return "WIN" if self.exit_price > self.entry_price else "LOSS"
+        if self.signal == PUT:
+            return "WIN" if self.exit_price < self.entry_price else "LOSS"
+        return "HOLD"
+
+    @property
+    def pnl(self) -> float:
+        if self.outcome == "WIN":
+            return self.stake * self.payout_ratio
+        if self.outcome == "LOSS":
+            return -self.stake
+        return 0.0
+
+
 def _safe_div(a: float, b: float, default: float = 0.0) -> float:
     return a / b if b else default
 
@@ -451,6 +478,52 @@ def signal_from_probability(
         signal = HOLD
     confidence = max(probability_up, 1.0 - probability_up)
     return {"signal": signal, "probability_up": probability_up, "confidence": confidence}
+
+
+def expected_roi_per_trade(win_rate: float, payout_ratio: float = 0.85, loss_ratio: float = 1.0) -> float:
+    return (win_rate * payout_ratio) - ((1.0 - win_rate) * loss_ratio)
+
+
+def confidence_calibration(
+    y_true: Sequence[int], y_prob_up: Sequence[float], bin_size: float = 0.05
+) -> List[Dict[str, float]]:
+    bins: Dict[int, List[Tuple[int, float]]] = {}
+    for actual, prob_up in zip(y_true, y_prob_up):
+        confidence = max(prob_up, 1.0 - prob_up)
+        idx = min(int(confidence / bin_size), int(1.0 / bin_size) - 1)
+        bins.setdefault(idx, []).append((actual, prob_up))
+
+    rows: List[Dict[str, float]] = []
+    for idx in sorted(bins):
+        items = bins[idx]
+        predicted = [1 if p >= 0.5 else 0 for _, p in items]
+        matches = sum(1 for (a, _), pred in zip(items, predicted) if a == pred)
+        lower = idx * bin_size
+        upper = min((idx + 1) * bin_size, 1.0)
+        rows.append(
+            {
+                "bin_lower": lower,
+                "bin_upper": upper,
+                "sample_count": float(len(items)),
+                "predicted_confidence": sum(max(p, 1.0 - p) for _, p in items) / len(items),
+                "actual_win_rate": matches / len(items),
+            }
+        )
+    return rows
+
+
+def classify_operating_status(
+    rolling_7d_accuracy: float, high_confidence_win_rate: float, rsi_importance: float
+) -> Dict[str, str]:
+    if rolling_7d_accuracy < 0.58 or high_confidence_win_rate < 0.55 or rsi_importance < 0.15:
+        return {"status": "RED", "action": "Stop trading and retrain full model."}
+    if (
+        rolling_7d_accuracy < 0.62
+        or high_confidence_win_rate < 0.65
+        or rsi_importance < 0.25
+    ):
+        return {"status": "YELLOW", "action": "Reduce size and retrain on latest candles."}
+    return {"status": "GREEN", "action": "Keep trading with normal size."}
 
 
 def fetch_eurusd_5m_history(history_days: int = 90) -> List[Candle]:

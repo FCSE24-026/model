@@ -5,11 +5,15 @@ from trading_system import (
     FEATURE_NAMES,
     BinaryOptionsTradingSystem,
     Candle,
+    TradeLog,
     HOLD,
     PUT,
     CALL,
     build_labeled_dataset,
+    classify_operating_status,
+    confidence_calibration,
     compute_features,
+    expected_roi_per_trade,
     signal_from_probability,
     train_test_split_no_overlap,
 )
@@ -65,6 +69,46 @@ class TradingSystemTests(unittest.TestCase):
         wf = system.walk_forward_validation(candles, train_window=100, test_window=20)
         self.assertIn("average", wf)
         self.assertIn("period_accuracies", wf)
+
+    def test_execution_pnl_and_roi(self):
+        win = TradeLog(
+            timestamp=datetime.now(timezone.utc),
+            signal=CALL,
+            entry_price=1.1,
+            exit_price=1.11,
+            confidence=0.7,
+        )
+        loss = TradeLog(
+            timestamp=datetime.now(timezone.utc),
+            signal=PUT,
+            entry_price=1.1,
+            exit_price=1.12,
+            confidence=0.68,
+        )
+        self.assertEqual(win.outcome, "WIN")
+        self.assertEqual(loss.outcome, "LOSS")
+        self.assertEqual(round(win.pnl, 2), 0.85)
+        self.assertEqual(round(loss.pnl, 2), -1.00)
+        self.assertAlmostEqual(expected_roi_per_trade(0.61), 0.1285, places=6)
+
+    def test_calibration_and_operating_status(self):
+        y_true = [1, 1, 0, 0, 1]
+        y_prob = [0.8, 0.7, 0.2, 0.4, 0.6]
+        bins = confidence_calibration(y_true, y_prob, 0.1)
+        self.assertTrue(len(bins) >= 1)
+        self.assertIn("actual_win_rate", bins[0])
+        self.assertEqual(
+            classify_operating_status(0.63, 0.71, 0.30)["status"],
+            "GREEN",
+        )
+        self.assertEqual(
+            classify_operating_status(0.60, 0.64, 0.20)["status"],
+            "YELLOW",
+        )
+        self.assertEqual(
+            classify_operating_status(0.55, 0.54, 0.14)["status"],
+            "RED",
+        )
 
 
 if __name__ == "__main__":
