@@ -16,6 +16,7 @@ import csv
 CALL = "CALL"
 PUT = "PUT"
 HOLD = "HOLD"
+SIGMOID_CLAMP = 60.0
 
 
 FEATURE_NAMES: Tuple[str, ...] = (
@@ -314,8 +315,8 @@ class _FallbackBinaryModel:
         out = []
         for row in x:
             score = self.bias + sum(w * v for w, v in zip(self.weights, row))
-            # Keep exp() input bounded to avoid overflow in sigmoid computation.
-            score = _clamp(score, -60.0, 60.0)
+            # exp(±60) is already extreme, while staying far from overflow.
+            score = _clamp(score, -SIGMOID_CLAMP, SIGMOID_CLAMP)
             p_up = 1 / (1 + exp(-score))
             out.append((1 - p_up, p_up))
         return out
@@ -460,9 +461,13 @@ def fetch_eurusd_5m_history(history_days: int = 90) -> List[Candle]:
 
     now = datetime.now(timezone.utc)
     start = now - timedelta(days=history_days)
-    params = (
-        f"period1={int(start.timestamp())}&period2={int(now.timestamp())}"
-        "&interval=5m&events=history&includeAdjustedClose=true"
+    query_template = (
+        "period1={period1}&period2={period2}&interval=5m"
+        "&events=history&includeAdjustedClose=true"
+    )
+    params = query_template.format(
+        period1=int(start.timestamp()),
+        period2=int(now.timestamp()),
     )
     url = f"https://query1.finance.yahoo.com/v7/finance/download/{quote('EURUSD=X')}?{params}"
     try:
@@ -473,7 +478,8 @@ def fetch_eurusd_5m_history(history_days: int = 90) -> List[Candle]:
     reader = csv.DictReader(rows)
     candles: List[Candle] = []
     for row in reader:
-        if "null" in row.values():
+        close = (row.get("Close") or "").strip()
+        if not close or close.lower() == "null":
             continue
         candles.append(
             Candle(
@@ -481,7 +487,7 @@ def fetch_eurusd_5m_history(history_days: int = 90) -> List[Candle]:
                 open=float(row["Open"]),
                 high=float(row["High"]),
                 low=float(row["Low"]),
-                close=float(row["Close"]),
+                close=float(close),
                 volume=float(row["Volume"] or 0),
             )
         )
