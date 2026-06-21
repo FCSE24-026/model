@@ -9,6 +9,7 @@ from statistics import mean, pstdev
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple, Union
 from urllib.parse import quote
 from urllib.request import urlopen
+from urllib.error import URLError
 import csv
 
 
@@ -313,6 +314,7 @@ class _FallbackBinaryModel:
         out = []
         for row in x:
             score = self.bias + sum(w * v for w, v in zip(self.weights, row))
+            score = _clamp(score, -60.0, 60.0)
             p_up = 1 / (1 + exp(-score))
             out.append((1 - p_up, p_up))
         return out
@@ -333,7 +335,7 @@ class BinaryOptionsTradingSystem:
         self.model = None
         self._using_xgboost = False
 
-    def _create_model(self):
+    def _create_model(self) -> Union[object, _FallbackBinaryModel]:
         try:
             from xgboost import XGBClassifier  # type: ignore
 
@@ -461,8 +463,11 @@ def fetch_eurusd_5m_history(history_days: int = 90) -> List[Candle]:
         "&interval=5m&events=history&includeAdjustedClose=true"
     )
     url = f"https://query1.finance.yahoo.com/v7/finance/download/{quote('EURUSD=X')}?{params}"
-    with urlopen(url, timeout=30) as response:
-        rows = response.read().decode("utf-8").splitlines()
+    try:
+        with urlopen(url, timeout=30) as response:
+            rows = response.read().decode("utf-8").splitlines()
+    except (URLError, OSError) as exc:
+        raise RuntimeError("Unable to fetch EUR/USD data from Yahoo Finance.") from exc
     reader = csv.DictReader(rows)
     candles: List[Candle] = []
     for row in reader:
