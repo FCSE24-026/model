@@ -314,6 +314,7 @@ class _FallbackBinaryModel:
         out = []
         for row in x:
             score = self.bias + sum(w * v for w, v in zip(self.weights, row))
+            # Keep exp() input bounded to avoid overflow in sigmoid computation.
             score = _clamp(score, -60.0, 60.0)
             p_up = 1 / (1 + exp(-score))
             out.append((1 - p_up, p_up))
@@ -454,6 +455,7 @@ def signal_from_probability(
 def fetch_eurusd_5m_history(history_days: int = 90) -> List[Candle]:
     """
     Download EUR/USD 5m candles from Yahoo Finance chart endpoint.
+    Yahoo may throttle frequent calls, so use caller-side scheduling/caching.
     """
 
     now = datetime.now(timezone.utc)
