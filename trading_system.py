@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from math import exp
 from statistics import mean, pstdev
-from typing import Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Dict, Iterable, List, Optional, Sequence, Tuple, Union
 from urllib.parse import quote
 from urllib.request import urlopen
 import csv
@@ -384,14 +384,16 @@ class BinaryOptionsTradingSystem:
             - accuracy_score(y_test, y_pred),
         }
 
-    def predict_signal_from_features(self, feature_row: Sequence[float]) -> Dict[str, float | str]:
+    def predict_signal_from_features(
+        self, feature_row: Sequence[float]
+    ) -> Dict[str, Union[float, str]]:
         if self.model is None or self.scaler is None:
             raise RuntimeError("Model must be fit before prediction.")
         scaled = apply_standard_scaler([feature_row], self.scaler)
         p_up = self.model.predict_proba(scaled)[0][1]
         return signal_from_probability(p_up, self.config.call_threshold, self.config.put_threshold)
 
-    def predict_signal(self, candles: Sequence[Candle]) -> Dict[str, float | str]:
+    def predict_signal(self, candles: Sequence[Candle]) -> Dict[str, Union[float, str]]:
         if len(candles) < 2:
             raise ValueError("At least 2 candles are required.")
         row = build_labeled_dataset(candles)[0][-1]
@@ -406,7 +408,7 @@ class BinaryOptionsTradingSystem:
 
     def walk_forward_validation(
         self, candles: Sequence[Candle], train_window: int = 500, test_window: int = 50
-    ) -> Dict[str, float | List[float]]:
+    ) -> Dict[str, Union[float, List[float]]]:
         x, y = build_labeled_dataset(candles)
         accuracies: List[float] = []
         for start in range(0, max(len(x) - train_window - test_window + 1, 0), test_window):
@@ -436,7 +438,7 @@ class BinaryOptionsTradingSystem:
 
 def signal_from_probability(
     probability_up: float, call_threshold: float = 0.55, put_threshold: float = 0.45
-) -> Dict[str, float | str]:
+) -> Dict[str, Union[float, str]]:
     if probability_up > call_threshold:
         signal = CALL
     elif probability_up < put_threshold:
@@ -477,4 +479,3 @@ def fetch_eurusd_5m_history(history_days: int = 90) -> List[Candle]:
             )
         )
     return candles
-
