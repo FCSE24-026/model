@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 
 import yfinance as yf
 
-from features import calculate_features
+from features import FEATURE_COLUMNS, calculate_features
 
 
 def generate_signal(model, scaler):
@@ -32,7 +32,7 @@ def generate_signal(model, scaler):
         raise RuntimeError("Feature frame is empty")
 
     latest = feat.iloc[-1]
-    x = latest[:-1].values.reshape(1, -1)
+    x = latest[FEATURE_COLUMNS].values.reshape(1, -1)
     x_scaled = scaler.transform(x)
 
     proba = model.predict_proba(x_scaled)[0]

@@ -4,6 +4,7 @@ from ta.trend import MACD
 from ta.volatility import BollingerBands, AverageTrueRange
 
 
+# Canonical feature order used for model training/inference.
 FEATURE_COLUMNS = [
     "rsi_14",
     "macd",

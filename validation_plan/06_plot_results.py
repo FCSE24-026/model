@@ -9,7 +9,7 @@ if __name__ == "__main__":
         raise SystemExit("No walk-forward rows to plot.")
 
     mean_acc = results["accuracy"].mean()
-    std_acc = results["accuracy"].std(ddof=0)
+    std_acc = results["accuracy"].std(ddof=1) if len(results) > 1 else 0.0
 
     fig, axes = plt.subplots(2, 1, figsize=(12, 8))
 

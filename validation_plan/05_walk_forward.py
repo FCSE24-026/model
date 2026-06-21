@@ -2,6 +2,7 @@ import os
 import pandas as pd
 from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.preprocessing import StandardScaler
+from features import FEATURE_COLUMNS
 
 
 if __name__ == "__main__":
@@ -14,10 +15,10 @@ if __name__ == "__main__":
     rows = []
 
     for i in range(window_size, len(df) - step_size + 1, step_size):
-        x_train = df.iloc[i - window_size : i, :-1].values
-        y_train = df.iloc[i - window_size : i, -1].values
-        x_test = df.iloc[i : i + step_size, :-1].values
-        y_test = df.iloc[i : i + step_size, -1].values
+        x_train = df.iloc[i - window_size : i][FEATURE_COLUMNS].values
+        y_train = df.iloc[i - window_size : i]["label"].values
+        x_test = df.iloc[i : i + step_size][FEATURE_COLUMNS].values
+        y_test = df.iloc[i : i + step_size]["label"].values
 
         scaler = StandardScaler()
         x_train_scaled = scaler.fit_transform(x_train)

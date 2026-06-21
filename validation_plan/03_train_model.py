@@ -5,11 +5,12 @@ import pandas as pd
 from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.metrics import roc_auc_score, confusion_matrix
 from sklearn.preprocessing import StandardScaler
+from features import FEATURE_COLUMNS
 
 
 def split_xy(df: pd.DataFrame):
-    x = df.iloc[:, :-1].values
-    y = df.iloc[:, -1].values
+    x = df[FEATURE_COLUMNS].values
+    y = df["label"].values
     return x, y
 
 
@@ -57,7 +58,7 @@ if __name__ == "__main__":
     print(f"Sensitivity (UP recall): {tp / max(tp + fn, 1):.1%}")
     print(f"Specificity (DOWN recall): {tn / max(tn + fp, 1):.1%}")
 
-    feature_names = df.columns[:-1]
+    feature_names = FEATURE_COLUMNS
     importances = model.feature_importances_
     sorted_idx = np.argsort(importances)[::-1]
 

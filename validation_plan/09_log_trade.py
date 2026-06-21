@@ -3,9 +3,12 @@ from datetime import datetime, timezone
 
 import pandas as pd
 
+WIN_PAYOUT = 0.85
+LOSS_STAKE = 1.0
+
 
 def log_trade(pair, direction, entry_price, exit_price, outcome, confidence):
-    pnl = 0.85 if outcome.upper() == "WIN" else -1.0
+    pnl = WIN_PAYOUT if outcome.upper() == "WIN" else -LOSS_STAKE
 
     row = {
         "timestamp": datetime.now(timezone.utc).isoformat(),

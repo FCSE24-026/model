@@ -2,6 +2,7 @@ import pickle
 import numpy as np
 import pandas as pd
 from sklearn.metrics import roc_auc_score
+from features import FEATURE_COLUMNS
 
 
 if __name__ == "__main__":
@@ -10,8 +11,8 @@ if __name__ == "__main__":
         model, scaler, _ = pickle.load(f)
 
     split_idx = int(len(df) * 0.8)
-    x_test = df.iloc[split_idx:, :-1].values
-    y_test = df.iloc[split_idx:, -1].values
+    x_test = df.iloc[split_idx:][FEATURE_COLUMNS].values
+    y_test = df.iloc[split_idx:]["label"].values
 
     x_test_scaled = scaler.transform(x_test)
     y_pred = model.predict(x_test_scaled)

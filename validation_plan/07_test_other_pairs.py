@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 import yfinance as yf
 
-from features import calculate_features
+from features import FEATURE_COLUMNS, calculate_features
 
 
 def download_5m_data(ticker: str, periods=("60d", "30d")) -> pd.DataFrame:
@@ -56,8 +56,8 @@ if __name__ == "__main__":
             continue
 
         split_idx = int(len(df_feat) * 0.8)
-        x_test = df_feat.iloc[split_idx:, :-1].values
-        y_test = df_feat.iloc[split_idx:, -1].values
+        x_test = df_feat.iloc[split_idx:][FEATURE_COLUMNS].values
+        y_test = df_feat.iloc[split_idx:]["label"].values
 
         x_test_scaled = scaler_eurusd.transform(x_test)
         y_pred = model.predict(x_test_scaled)
